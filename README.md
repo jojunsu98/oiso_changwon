@@ -2,8 +2,6 @@
 
 # 오이소창원 — AI 기반 창원 정착 지원 Agent
 
-> 최⁠신 개⁠발 인⁠계: [오⁠류 수⁠정·UX/UI 개⁠선·검⁠증 종⁠합 기⁠록](handoff/team_share/오이소창원_UXUI_오류수정_검증_최종기록_20261005.md) — 코⁠드 기⁠준 b957d04, 전⁠체 127개 OK(62.915초). [Drive 사⁠본](https://drive.google.com/file/d/1abmm9dlg25cnurKXnFbRQUUUXV45Wftf/view).
-
 > 창⁠원⁠에 새⁠로 전⁠입⁠한 청⁠년⁠이 첫 180일 동⁠안 놓⁠치⁠기 쉬⁠운 혜⁠택⁠과 할 일⁠을,
 > 나⁠의 조⁠건⁠으⁠로 판⁠정⁠하⁠고 일⁠정⁠으⁠로 만⁠들⁠어 함⁠께 챙⁠겨 주⁠는 코⁠디⁠네⁠이⁠터 Agent
 > — 슬⁠로⁠건: **창⁠원⁠에⁠서 너⁠의 내⁠일⁠을 응⁠원⁠해!**
@@ -146,11 +144,9 @@ oiso_changwon/
 │   ├── submission/ (신청서 최종 수정본 · 출처·AI 활용 신고서)
 │   └── presentation/ (발표) ── video/ (시연동영상 제출4) · ppt/ (발표자료 제출5)
 │
-├── screenshots/ (화면 캡처)
-│   ├── during_development/ (구현 과정)  ai_test 26장 · work_process 27장 · team_self_test 37장 · ui_update 11장 · deploy_check 15장 · 작업과정_20261004_새디자인 5장 · 작업과정_20261004_최종구현사진 21장
-│   └── after_development/ (구현 완료)   최종완료사진_1005 — PC 10장 · 휴대폰 11장
-│
-└── handoff/ (인수인계, 제출 전 삭제)  작업지시·인계서 · 문서 수정 메모 · tools(문서 변환)
+└── screenshots/ (화면 캡처)
+    ├── during_development/ (구현 과정)  ai_test 26장 · work_process 27장 · team_self_test 37장 · ui_update 11장 · deploy_check 15장 · 작업과정_20261004_새디자인 5장 · 작업과정_20261004_최종구현사진 21장
+    └── after_development/ (구현 완료)   최종완료사진_1005 — PC 10장 · 휴대폰 11장
 ```
 
 ---
