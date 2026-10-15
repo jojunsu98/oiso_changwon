@@ -9,7 +9,13 @@
 
 - **배포 서비스:** https://oiso-changwon-lite.vercel.app
 - **과제용 브랜치:** `codyssey-vercel-lite`
-- **제출 패키지:** [submission/codyssey-ai-web-service](https://github.com/jojunsu98/oiso_changwon/tree/codyssey-vercel-lite/submission/codyssey-ai-web-service)
+- **서비스 기획서:** [docs/codyssey-service-plan.md](./docs/codyssey-service-plan.md)
+- **오류 개선 보고서:** [02-error-improvement-report.md](./submission/codyssey-ai-web-service/02-error-improvement-report.md)
+- **테스트 보고서:** [03-test-report.md](./submission/codyssey-ai-web-service/03-test-report.md)
+- **발표자료:** [07-presentation-slides.md](./submission/codyssey-ai-web-service/07-presentation-slides.md)
+- **발표대본:** [05-presentation-script.md](./submission/codyssey-ai-web-service/05-presentation-script.md)
+- **증빙 이미지:** [evidence/](./submission/codyssey-ai-web-service/evidence)
+- **전체 제출 패키지:** [submission/codyssey-ai-web-service](./submission/codyssey-ai-web-service)
 - **Google Drive 제출 폴더:** https://drive.google.com/drive/folders/1fvFPov8IEI4ycado1T78TsZJ3_fvU7w5
 
 ## 프로젝트 상태
@@ -202,7 +208,7 @@ vercel dev
 - 긴급 경로: 화재 질문에 112·119 안내
 - 테스트 응답 내 비밀값 노출 검사: **0건**
 
-자세한 결과는 `submission/codyssey-ai-web-service/03-test-report.md`에서 확인한다.
+자세한 결과는 [`03-test-report.md`](./submission/codyssey-ai-web-service/03-test-report.md)에서 확인한다.
 
 ## 12. 주요 오류와 개선
 
@@ -216,7 +222,7 @@ vercel dev
 | 오류 원인 파악 어려움 | 사용자 메시지가 지나치게 일반적 | 오류 유형 분류와 서버 로그 분리 |
 | 진단 중 비밀값 노출 위험 | 임시 상세 진단 응답 | 진단 제거, 키 재발급 권고, 누출 검사 추가 |
 
-자세한 경과는 `submission/codyssey-ai-web-service/02-error-improvement-report.md`에서 확인한다.
+자세한 경과는 [`02-error-improvement-report.md`](./submission/codyssey-ai-web-service/02-error-improvement-report.md)에서 확인한다.
 
 ## 13. 보안·개인정보
 
@@ -234,7 +240,8 @@ vercel dev
 - 실제 지원 자격과 신청 가능 여부는 담당 기관에서 다시 확인해야 한다.
 - Lite 버전은 로그인·영구 저장·이메일 알림·캘린더 파일 기능을 제외했다.
 - 외부 AI 제공자의 쿼터·요금·장애에 영향을 받을 수 있다.
-- 향후 사용자 테스트를 통해 질문 검색 정확도와 모바일 UX를 추가 개선할 수 있다.
+- 민원·지역말 검색의 동의어와 표현 변형을 확대할 필요가 있다.
+- 향후 사용자 3~5명을 대상으로 모바일 사용성 테스트를 추가할 수 있다.
 
 ## 15. 출처와 기여 범위
 
