@@ -32,6 +32,9 @@ jobs:
       - name: Validate Python syntax
         run: python -m py_compile api/recommend.py api/chat.py src/policy_matcher.py src/policy_engine.py
 
+      - name: Validate browser JavaScript syntax
+        run: node --check js/app.js
+
       - name: Validate Vercel configuration
         run: python -m json.tool vercel.json > /dev/null
 
