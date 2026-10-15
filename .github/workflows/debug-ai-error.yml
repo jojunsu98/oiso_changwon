@@ -1,0 +1,47 @@
+name: Add sanitized AI diagnostics
+
+on:
+  push:
+    branches:
+      - codyssey-vercel-lite
+    paths:
+      - ".github/workflows/debug-ai-error.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codyssey-vercel-lite
+
+      - name: Add safe provider detail to error response
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("api/chat.py")
+          text = path.read_text(encoding="utf-8")
+          old = '                        "error_type": error_type,\n'
+          new = (
+              '                        "error_type": error_type,\n'
+              '                        "detail": str(exc) if error_type == "AIProviderError" else None,\n'
+          )
+          if '"detail": str(exc)' not in text:
+              if old not in text:
+                  raise SystemExit("error response anchor not found")
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Validate and commit
+        run: |
+          python -m py_compile api/chat.py api/_ai_provider.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/chat.py
+          git commit -m "debug: expose sanitized provider failure reason"
+          git push origin codyssey-vercel-lite
