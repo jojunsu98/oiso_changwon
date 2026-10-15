@@ -17,6 +17,8 @@ DATA_FILE = ROOT / "data" / "policies_mvp.json"
 # 기존 오이소창원의 검증된 규칙 판정 모듈을 그대로 재사용한다.
 sys.path.insert(0, str(SRC_DIR))
 from policy_matcher import LEVELS, match_policies  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _ai_provider import generate_text  # noqa: E402
 
 MAX_BODY_BYTES = 12_000
 ALLOWED_JOB_TYPES = {"직장인", "구직자", "학생", "자영업", "기타"}
@@ -114,23 +116,25 @@ def _compact_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _build_ai_summary(profile: dict[str, Any], results: list[dict[str, Any]]) -> dict[str, Any]:
-    api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("CODEX_API_KEY") or "").strip()
-    if not api_key:
+    configured = any(
+        (os.getenv("GEMINI_API_KEY"), os.getenv("OPENAI_API_KEY"), os.getenv("CODEX_API_KEY"))
+    )
+    if not configured:
         return {
-            "available": False,
-            "summary": "AI 환경 변수가 아직 설정되지 않아 규칙 기반 판정 결과만 표시합니다. 배포 환경에 OPENAI_API_KEY를 등록하면 AI 요약이 함께 생성됩니다.",
-            "message": "OPENAI_API_KEY 미설정",
+  "available": False,
+  "summary": "AI 환경 변수가 아직 설정되지 않아 규칙 기반 판정 결과만 표시합니다.",
+  "message": "AI API 키 미설정",
         }
 
     candidates = [result for result in results if result.get("level") != "해당 없음"][:7]
     ai_context = [
         {
-            "정책명": item.get("name"),
-            "판정": item.get("level"),
-            "이유": item.get("reasons"),
-            "지원내용": item.get("support"),
-            "일정": item.get("schedule"),
-            "모집상태": item.get("status"),
+  "정책명": item.get("name"),
+  "판정": item.get("level"),
+  "이유": item.get("reasons"),
+  "지원내용": item.get("support"),
+  "일정": item.get("schedule"),
+  "모집상태": item.get("status"),
         }
         for item in candidates
     ]
@@ -154,31 +158,23 @@ def _build_ai_summary(profile: dict[str, Any], results: list[dict[str, Any]]) ->
 """.strip()
 
     try:
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key, timeout=25.0, max_retries=1)
-        response = client.responses.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-            instructions=instructions,
-            input=json.dumps(
-                {"사용자 조건": profile_for_ai, "규칙 기반 판정": ai_context},
-                ensure_ascii=False,
-                default=_json_default,
-            ),
-            max_output_tokens=550,
+        summary = generate_text(
+  instructions=instructions,
+  input_text=json.dumps(
+      {"사용자 조건": profile_for_ai, "규칙 기반 판정": ai_context},
+      ensure_ascii=False,
+      default=_json_default,
+  ),
+  max_output_tokens=550,
         )
-        summary = (response.output_text or "").strip()
-        if not summary:
-            raise RuntimeError("AI 응답 본문이 비어 있습니다.")
         return {"available": True, "summary": summary, "message": "정상 생성"}
-    except Exception as exc:  # 배포 로그에는 원인을 남기고, 브라우저에는 비밀값 없는 안내만 보낸다.
+    except Exception as exc:
         print(f"[recommend] AI summary failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return {
-            "available": False,
-            "summary": "정책 판정은 완료했지만 AI 요약을 불러오지 못했습니다. 아래 구조화된 결과를 확인하고 잠시 후 다시 시도해 주세요.",
-            "message": "AI API 오류",
+  "available": False,
+  "summary": "정책 판정은 완료했지만 AI 요약을 불러오지 못했습니다. 아래 구조화된 결과를 확인해 주세요.",
+  "message": "AI API 오류",
         }
-
 
 class handler(BaseHTTPRequestHandler):
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:

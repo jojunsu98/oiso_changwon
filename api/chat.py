@@ -14,6 +14,8 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _ai_provider import generate_text  # noqa: E402
 MAX_BODY_BYTES = 20_000
 MAX_MESSAGE_LENGTH = 500
 
@@ -282,10 +284,6 @@ def _profile_context(profile: Any) -> dict[str, Any] | None:
 
 
 def _generate_answer(message: str, context: dict[str, Any], profile: dict[str, Any] | None) -> str:
-    api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("CODEX_API_KEY") or "").strip()
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
-
     instructions = """
 당신은 '오이소창원'의 창원 정착 코디네이터다. 제공된 검증 자료만 사용해 한국어로 답한다.
 
@@ -301,28 +299,19 @@ def _generate_answer(message: str, context: dict[str, Any], profile: dict[str, A
 9. 답변은 보통 4~8문장으로 간결하게 작성한다.
 """.strip()
 
-    from openai import OpenAI
-
-    client = OpenAI(api_key=api_key, timeout=28.0, max_retries=1)
-    response = client.responses.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+    return generate_text(
         instructions=instructions,
-        input=json.dumps(
-            {
-                "현재 날짜": date.today().isoformat(),
-                "사용자 질문": message,
-                "선택 입력 조건": profile,
-                "검색된 검증 자료": context,
-            },
-            ensure_ascii=False,
+        input_text=json.dumps(
+  {
+      "현재 날짜": date.today().isoformat(),
+      "사용자 질문": message,
+      "선택 입력 조건": profile,
+      "검색된 검증 자료": context,
+  },
+  ensure_ascii=False,
         ),
         max_output_tokens=750,
     )
-    answer = (response.output_text or "").strip()
-    if not answer:
-        raise RuntimeError("AI 응답 본문이 비어 있습니다.")
-    return answer
-
 
 class handler(BaseHTTPRequestHandler):
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
@@ -426,6 +415,7 @@ class handler(BaseHTTPRequestHandler):
                     "BadRequestError": "OpenAI 요청 또는 모델 설정을 확인해야 합니다.",
                     "APIConnectionError": "OpenAI 서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.",
                     "APITimeoutError": "OpenAI 응답 시간이 초과됐습니다. 다시 시도해 주세요.",
+                    "AIProviderError": "AI 제공자 호출에 실패했습니다. 잠시 후 다시 시도해 주세요.",
                 }
                 self._send_json(
                     502,
