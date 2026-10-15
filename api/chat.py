@@ -425,7 +425,6 @@ class handler(BaseHTTPRequestHandler):
                             "AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
                         ),
                         "error_type": error_type,
-                        "detail": str(exc) if error_type == "AIProviderError" else None,
                     },
                 )
                 return
