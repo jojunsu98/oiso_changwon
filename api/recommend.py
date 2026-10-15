@@ -114,7 +114,7 @@ def _compact_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _build_ai_summary(profile: dict[str, Any], results: list[dict[str, Any]]) -> dict[str, Any]:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("CODEX_API_KEY") or "").strip()
     if not api_key:
         return {
             "available": False,

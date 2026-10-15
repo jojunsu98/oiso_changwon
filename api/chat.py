@@ -282,7 +282,7 @@ def _profile_context(profile: Any) -> dict[str, Any] | None:
 
 
 def _generate_answer(message: str, context: dict[str, Any], profile: dict[str, Any] | None) -> str:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("CODEX_API_KEY") or "").strip()
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY가 설정되지 않았습니다.")
 
