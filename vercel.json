@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "cleanUrls": true,
+  "functions": {
+    "api/recommend.py": {
+      "maxDuration": 30,
+      "includeFiles": "{data/policies_mvp.json,src/policy_matcher.py,src/policy_engine.py}"
+    },
+    "api/chat.py": {
+      "maxDuration": 30,
+      "includeFiles": "data/{policies_mvp.json,complaint_channels.json,dialects_core30.json,activities_mvp.json}"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}
