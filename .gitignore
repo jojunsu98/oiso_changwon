@@ -10,6 +10,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+jojunsu-api-setup*
+*api-setup*
 .streamlit/secrets.toml
 .streamlit/secrets.*.toml
 **/*credentials*.json
