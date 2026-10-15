@@ -31,7 +31,7 @@ jobs:
                 print(f"[chat] OpenAI call failed: {type(exc).__name__}: {exc}", file=sys.stderr)
                 self._send_json(502, {"message": "AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."})
                 return
-'''
+          '''
 
           new = '''            except Exception as exc:
                 error_type = type(exc).__name__
@@ -56,7 +56,7 @@ jobs:
                     },
                 )
                 return
-'''
+          '''
 
           if old not in text:
               raise SystemExit("Expected chat exception block was not found")
