@@ -17,7 +17,12 @@ class AIProviderError(Exception):
 
 def _gemini_models() -> list[str]:
     configured = os.getenv("GEMINI_MODEL", "").strip()
-    candidates = [configured, "gemini-3.5-flash-lite", "gemini-2.5-flash"]
+    candidates = [
+        configured,
+        "gemini-3.5-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-2.5-flash",
+    ]
     unique: list[str] = []
     for model in candidates:
         if model and model not in unique:
@@ -61,7 +66,14 @@ def _generate_with_gemini(
             with request.urlopen(req, timeout=18) as response:
                 result = json.loads(response.read().decode("utf-8"))
         except error.HTTPError as exc:
-            failures.append(f"{model}:HTTP{exc.code}")
+            status = ""
+            try:
+                error_payload = json.loads(exc.read().decode("utf-8"))
+                status = str((error_payload.get("error") or {}).get("status") or "")
+            except Exception:
+                status = ""
+            suffix = f":{status}" if status else ""
+            failures.append(f"{model}:HTTP{exc.code}{suffix}")
             continue
         except (error.URLError, TimeoutError, OSError) as exc:
             failures.append(f"{model}:{type(exc).__name__}")
@@ -131,7 +143,7 @@ def generate_text(
                 max_output_tokens=max_output_tokens,
             )
         except Exception as exc:
-            failures.append(f"Gemini:{type(exc).__name__}")
+            failures.append(f"Gemini:{str(exc)}")
 
     if openai_key:
         try:
@@ -146,4 +158,4 @@ def generate_text(
 
     if not failures:
         raise AIProviderError("사용 가능한 AI API 키가 설정되지 않았습니다.")
-    raise AIProviderError("모든 AI 제공자 호출 실패: " + ", ".join(failures))
+    raise AIProviderError("모든 AI 제공자 호출 실패: " + " | ".join(failures))
