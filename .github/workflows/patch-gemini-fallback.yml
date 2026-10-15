@@ -1,0 +1,192 @@
+name: Add Gemini fallback
+
+on:
+  push:
+    branches:
+      - codyssey-vercel-lite
+    paths:
+      - ".github/workflows/patch-gemini-fallback.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Lite branch
+        uses: actions/checkout@v4
+        with:
+          ref: codyssey-vercel-lite
+
+      - name: Patch chat and recommendation functions
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          # 1) AI chat: import shared provider and replace OpenAI-only generator.
+          chat_path = Path("api/chat.py")
+          chat = chat_path.read_text(encoding="utf-8")
+
+          chat_anchor = 'DATA_DIR = ROOT / "data"\n'
+          chat_import = (
+              'DATA_DIR = ROOT / "data"\n'
+              'sys.path.insert(0, str(Path(__file__).resolve().parent))\n'
+              'from _ai_provider import generate_text  # noqa: E402\n'
+          )
+          if 'from _ai_provider import generate_text' not in chat:
+              if chat_anchor not in chat:
+                  raise SystemExit("chat import anchor not found")
+              chat = chat.replace(chat_anchor, chat_import, 1)
+
+          chat_start = chat.index('def _generate_answer(')
+          chat_end = chat.index('\n\nclass handler', chat_start)
+          chat_function = '''def _generate_answer(message: str, context: dict[str, Any], profile: dict[str, Any] | None) -> str:
+              instructions = """
+          당신은 '오이소창원'의 창원 정착 코디네이터다. 제공된 검증 자료만 사용해 한국어로 답한다.
+
+          필수 규칙:
+          1. 자료에 없는 사실·금액·날짜·연락처·자격 조건을 만들지 않는다.
+          2. 정책은 '해당 가능성이 있다', '조건 확인이 필요하다'처럼 설명하고 최종 자격을 확정하지 않는다.
+          3. 모집 종료·확인 필요 상태를 현재 신청 가능하다고 바꾸지 않는다.
+          4. 지역말 자료의 검수 상태가 '사람 검수 필요'라면 그 한계를 짧게 밝힌다.
+          5. 행사·운영시간은 자료의 최종 확인일 기준이며 최신 여부를 공식 경로에서 재확인하라고 말한다.
+          6. 질문과 관련된 핵심 답을 먼저 말하고, 다음 행동을 1~3개로 정리한다.
+          7. 자료가 충분하지 않으면 추측하지 말고 '현재 확인된 자료만으로는 답하기 어렵다'고 말한다.
+          8. 개인정보를 추가로 요구하지 않는다.
+          9. 답변은 보통 4~8문장으로 간결하게 작성한다.
+          """.strip()
+
+              return generate_text(
+                  instructions=instructions,
+                  input_text=json.dumps(
+                      {
+                          "현재 날짜": date.today().isoformat(),
+                          "사용자 질문": message,
+                          "선택 입력 조건": profile,
+                          "검색된 검증 자료": context,
+                      },
+                      ensure_ascii=False,
+                  ),
+                  max_output_tokens=750,
+              )
+          '''
+          # Remove only the indentation added to keep this workflow readable.
+          chat_function = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in chat_function.splitlines()
+          ).rstrip()
+          chat = chat[:chat_start] + chat_function + chat[chat_end:]
+          chat = chat.replace(
+              '                    "APITimeoutError": "OpenAI 응답 시간이 초과됐습니다. 다시 시도해 주세요.",\n',
+              '                    "APITimeoutError": "OpenAI 응답 시간이 초과됐습니다. 다시 시도해 주세요.",\n'
+              '                    "AIProviderError": "AI 제공자 호출에 실패했습니다. 잠시 후 다시 시도해 주세요.",\n',
+              1,
+          )
+          chat_path.write_text(chat, encoding="utf-8")
+
+          # 2) Policy recommendation: use the same Gemini-first provider.
+          recommend_path = Path("api/recommend.py")
+          recommend = recommend_path.read_text(encoding="utf-8")
+
+          recommend_anchor = 'from policy_matcher import LEVELS, match_policies  # noqa: E402\n'
+          recommend_import = (
+              'from policy_matcher import LEVELS, match_policies  # noqa: E402\n'
+              'sys.path.insert(0, str(Path(__file__).resolve().parent))\n'
+              'from _ai_provider import generate_text  # noqa: E402\n'
+          )
+          if 'from _ai_provider import generate_text' not in recommend:
+              if recommend_anchor not in recommend:
+                  raise SystemExit("recommend import anchor not found")
+              recommend = recommend.replace(recommend_anchor, recommend_import, 1)
+
+          recommend_start = recommend.index('def _build_ai_summary(')
+          recommend_end = recommend.index('\n\nclass handler', recommend_start)
+          recommend_function = '''def _build_ai_summary(profile: dict[str, Any], results: list[dict[str, Any]]) -> dict[str, Any]:
+              configured = any(
+                  (os.getenv("GEMINI_API_KEY"), os.getenv("OPENAI_API_KEY"), os.getenv("CODEX_API_KEY"))
+              )
+              if not configured:
+                  return {
+                      "available": False,
+                      "summary": "AI 환경 변수가 아직 설정되지 않아 규칙 기반 판정 결과만 표시합니다.",
+                      "message": "AI API 키 미설정",
+                  }
+
+              candidates = [result for result in results if result.get("level") != "해당 없음"][:7]
+              ai_context = [
+                  {
+                      "정책명": item.get("name"),
+                      "판정": item.get("level"),
+                      "이유": item.get("reasons"),
+                      "지원내용": item.get("support"),
+                      "일정": item.get("schedule"),
+                      "모집상태": item.get("status"),
+                  }
+                  for item in candidates
+              ]
+              profile_for_ai = {
+                  "나이": profile["age"],
+                  "전입일": profile["move_in_date"].isoformat(),
+                  "하는 일": profile["job_type"],
+                  "창원 사업장 재직": profile["employed_in_changwon"],
+                  "전입 전 타지역 거주기간": profile["previous_residence_years"],
+                  "차량": profile["vehicle"],
+              }
+
+              instructions = """
+          당신은 '오이소창원'의 창원 정착 코디네이터다.
+          아래 규칙 기반 판정 결과만 사용해 한국어로 4~6문장의 짧은 정착 브리핑을 작성한다.
+          - 정책 자격을 확정하거나 '무조건 받을 수 있다'고 말하지 않는다.
+          - '해당 가능', '조건부 해당 가능', '직접 확인'이라는 판정 표현을 유지한다.
+          - 우선 확인할 정책 2~3개와 다음 행동 또는 확인 시점을 구체적으로 말한다.
+          - 입력·판정 자료에 없는 조건, 금액, 날짜, 연락처를 만들어내지 않는다.
+          - 마지막 문장은 '최종 자격과 최신 모집 일정은 공식 기관에서 다시 확인해 주세요.'로 끝낸다.
+          """.strip()
+
+              try:
+                  summary = generate_text(
+                      instructions=instructions,
+                      input_text=json.dumps(
+                          {"사용자 조건": profile_for_ai, "규칙 기반 판정": ai_context},
+                          ensure_ascii=False,
+                          default=_json_default,
+                      ),
+                      max_output_tokens=550,
+                  )
+                  return {"available": True, "summary": summary, "message": "정상 생성"}
+              except Exception as exc:
+                  print(f"[recommend] AI summary failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+                  return {
+                      "available": False,
+                      "summary": "정책 판정은 완료했지만 AI 요약을 불러오지 못했습니다. 아래 구조화된 결과를 확인해 주세요.",
+                      "message": "AI API 오류",
+                  }
+          '''
+          recommend_function = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in recommend_function.splitlines()
+          ).rstrip()
+          recommend = recommend[:recommend_start] + recommend_function + recommend[recommend_end:]
+          recommend_path.write_text(recommend, encoding="utf-8")
+
+          # 3) Allow enough time for one provider plus fallback.
+          config_path = Path("vercel.json")
+          config = json.loads(config_path.read_text(encoding="utf-8"))
+          config["functions"]["api/recommend.py"]["maxDuration"] = 60
+          config["functions"]["api/chat.py"]["maxDuration"] = 60
+          config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Validate Python syntax
+        run: |
+          python -m py_compile api/_ai_provider.py api/chat.py api/recommend.py
+
+      - name: Commit patched files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/_ai_provider.py api/chat.py api/recommend.py vercel.json
+          git commit -m "fix: use Gemini when OpenAI quota is unavailable"
+          git push origin codyssey-vercel-lite
