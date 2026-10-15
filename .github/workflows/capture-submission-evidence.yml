@@ -1,0 +1,136 @@
+name: Capture submission evidence
+
+on:
+  push:
+    branches:
+      - codyssey-vercel-lite
+    paths:
+      - ".github/workflows/capture-submission-evidence.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Lite branch
+        uses: actions/checkout@v4
+        with:
+          ref: codyssey-vercel-lite
+
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.56.1 --silent
+          npx playwright install --with-deps chromium
+
+      - name: Capture desktop, mobile, AI, result, and error screens
+        run: |
+          mkdir -p submission/codyssey-ai-web-service/evidence
+          cat > capture-evidence.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+
+          const base = 'https://oiso-changwon-lite.vercel.app';
+          const out = 'submission/codyssey-ai-web-service/evidence';
+          fs.mkdirSync(out, { recursive: true });
+
+          const browser = await chromium.launch({ headless: true });
+
+          async function openPage(width, height, mobile = false) {
+            const context = await browser.newContext({
+              viewport: { width, height },
+              deviceScaleFactor: mobile ? 2 : 1,
+              isMobile: mobile,
+              hasTouch: mobile,
+              locale: 'ko-KR',
+            });
+            const page = await context.newPage();
+            await page.goto(base, { waitUntil: 'networkidle', timeout: 60000 });
+            await page.evaluate(() => document.fonts?.ready);
+            await page.waitForTimeout(700);
+            return { page, context };
+          }
+
+          // Desktop home.
+          {
+            const { page, context } = await openPage(1440, 900);
+            await page.screenshot({ path: path.join(out, '01-desktop-home.png') });
+            await context.close();
+          }
+
+          // Desktop AI response.
+          {
+            const { page, context } = await openPage(1440, 900);
+            await page.locator('#assistant').scrollIntoViewIfNeeded();
+            await page.locator('#chat-input').fill('창원으로 이사 온 직장인이 받을 수 있는 지원금이 있어?');
+            await page.locator('#chat-form button[type="submit"]').click();
+            await page.waitForFunction(() => document.querySelectorAll('#chat-output .assistant-bubble').length >= 2, null, { timeout: 60000 });
+            await page.waitForTimeout(500);
+            await page.locator('#assistant').screenshot({ path: path.join(out, '02-desktop-ai-answer.png') });
+            await context.close();
+          }
+
+          // Desktop recommendation result.
+          {
+            const { page, context } = await openPage(1440, 900);
+            await page.locator('#match').scrollIntoViewIfNeeded();
+            await page.locator('#age').fill('28');
+            await page.locator('#move-in-date').fill('2026-09-20');
+            await page.locator('#job-type').selectOption('직장인');
+            await page.locator('#employed').selectOption('true');
+            await page.locator('#previous-residence').selectOption('3');
+            await page.locator('#vehicle').selectOption('없음');
+            await page.locator('#profile-form button[type="submit"]').click();
+            await page.waitForFunction(() => {
+              const el = document.querySelector('#results');
+              return el && !el.hidden && document.querySelectorAll('#policy-list > *').length > 0;
+            }, null, { timeout: 60000 });
+            await page.waitForTimeout(600);
+            await page.locator('#results').screenshot({ path: path.join(out, '03-desktop-recommend-result.png') });
+            await context.close();
+          }
+
+          // Empty-input error.
+          {
+            const { page, context } = await openPage(1440, 900);
+            await page.locator('#assistant').scrollIntoViewIfNeeded();
+            await page.locator('#chat-form button[type="submit"]').click();
+            await page.waitForFunction(() => document.querySelector('#chat-message')?.textContent.trim().length > 0, null, { timeout: 10000 });
+            await page.waitForTimeout(250);
+            await page.locator('#assistant').screenshot({ path: path.join(out, '04-empty-input-error.png') });
+            await context.close();
+          }
+
+          // Mobile home.
+          {
+            const { page, context } = await openPage(390, 844, true);
+            await page.screenshot({ path: path.join(out, '05-mobile-home.png') });
+            await context.close();
+          }
+
+          // Mobile AI response.
+          {
+            const { page, context } = await openPage(390, 844, true);
+            await page.locator('#assistant').scrollIntoViewIfNeeded();
+            await page.locator('#chat-input').fill('욕봤데이는 무슨 뜻이야?');
+            await page.locator('#chat-form button[type="submit"]').click();
+            await page.waitForFunction(() => document.querySelectorAll('#chat-output .assistant-bubble').length >= 2, null, { timeout: 60000 });
+            await page.waitForTimeout(500);
+            await page.locator('#assistant').screenshot({ path: path.join(out, '06-mobile-ai-answer.png') });
+            await context.close();
+          }
+
+          await browser.close();
+          JS
+          node capture-evidence.mjs
+
+      - name: Commit evidence images
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add submission/codyssey-ai-web-service/evidence
+          git commit -m "docs: add final service evidence screenshots"
+          git push origin codyssey-vercel-lite
