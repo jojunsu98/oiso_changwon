@@ -1,0 +1,44 @@
+name: Patch OpenAI environment fallback
+
+on:
+  push:
+    branches:
+      - codyssey-vercel-lite
+    paths:
+      - ".github/workflows/patch-openai-env.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Lite branch
+        uses: actions/checkout@v4
+        with:
+          ref: codyssey-vercel-lite
+
+      - name: Allow existing CODEX_API_KEY as OpenAI key
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          old = '    api_key = os.getenv("OPENAI_API_KEY", "").strip()'
+          new = '    api_key = (os.getenv("OPENAI_API_KEY") or os.getenv("CODEX_API_KEY") or "").strip()'
+
+          for filename in ("api/recommend.py", "api/chat.py"):
+              path = Path(filename)
+              text = path.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected API key line not found in {filename}")
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Commit patched files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/recommend.py api/chat.py
+          git commit -m "fix: use existing Vercel OpenAI key variable"
+          git push origin codyssey-vercel-lite
