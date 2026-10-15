@@ -27,36 +27,40 @@ jobs:
           path = Path("api/chat.py")
           text = path.read_text(encoding="utf-8")
 
-          old = '''            except Exception as exc:
-                print(f"[chat] OpenAI call failed: {type(exc).__name__}: {exc}", file=sys.stderr)
-                self._send_json(502, {"message": "AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."})
-                return
-          '''
+          old_lines = [
+              "            except Exception as exc:",
+              "                print(f\"[chat] OpenAI call failed: {type(exc).__name__}: {exc}\", file=sys.stderr)",
+              "                self._send_json(502, {\"message\": \"AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.\"})",
+              "                return",
+          ]
+          old = "\n".join(old_lines) + "\n"
 
-          new = '''            except Exception as exc:
-                error_type = type(exc).__name__
-                print(f"[chat] OpenAI call failed: {error_type}: {exc}", file=sys.stderr)
-                messages = {
-                    "AuthenticationError": "OpenAI API 키 인증에 실패했습니다. Vercel에 등록한 키를 다시 확인해 주세요.",
-                    "PermissionDeniedError": "OpenAI 프로젝트 또는 모델 사용 권한이 없습니다.",
-                    "RateLimitError": "OpenAI API 사용 한도 또는 결제 크레딧을 확인해 주세요.",
-                    "NotFoundError": "설정된 OpenAI 모델을 사용할 수 없습니다.",
-                    "BadRequestError": "OpenAI 요청 또는 모델 설정을 확인해야 합니다.",
-                    "APIConnectionError": "OpenAI 서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-                    "APITimeoutError": "OpenAI 응답 시간이 초과됐습니다. 다시 시도해 주세요.",
-                }
-                self._send_json(
-                    502,
-                    {
-                        "message": messages.get(
-                            error_type,
-                            "AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
-                        ),
-                        "error_type": error_type,
-                    },
-                )
-                return
-          '''
+          new_lines = [
+              "            except Exception as exc:",
+              "                error_type = type(exc).__name__",
+              "                print(f\"[chat] OpenAI call failed: {error_type}: {exc}\", file=sys.stderr)",
+              "                messages = {",
+              "                    \"AuthenticationError\": \"OpenAI API 키 인증에 실패했습니다. Vercel에 등록한 키를 다시 확인해 주세요.\",",
+              "                    \"PermissionDeniedError\": \"OpenAI 프로젝트 또는 모델 사용 권한이 없습니다.\",",
+              "                    \"RateLimitError\": \"OpenAI API 사용 한도 또는 결제 크레딧을 확인해 주세요.\",",
+              "                    \"NotFoundError\": \"설정된 OpenAI 모델을 사용할 수 없습니다.\",",
+              "                    \"BadRequestError\": \"OpenAI 요청 또는 모델 설정을 확인해야 합니다.\",",
+              "                    \"APIConnectionError\": \"OpenAI 서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.\",",
+              "                    \"APITimeoutError\": \"OpenAI 응답 시간이 초과됐습니다. 다시 시도해 주세요.\",",
+              "                }",
+              "                self._send_json(",
+              "                    502,",
+              "                    {",
+              "                        \"message\": messages.get(",
+              "                            error_type,",
+              "                            \"AI 응답을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.\",",
+              "                        ),",
+              "                        \"error_type\": error_type,",
+              "                    },",
+              "                )",
+              "                return",
+          ]
+          new = "\n".join(new_lines) + "\n"
 
           if old not in text:
               raise SystemExit("Expected chat exception block was not found")
