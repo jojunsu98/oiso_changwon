@@ -1,7 +1,7 @@
 """AI text provider helper for Vercel Python Functions.
 
 Gemini is used first when GEMINI_API_KEY exists. OpenAI is used as a fallback.
-No secret value is returned to the browser or written to logs.
+Secret values are normalized before use and are never returned to the browser.
 """
 
 from __future__ import annotations
@@ -13,6 +13,27 @@ from urllib import error, request
 
 class AIProviderError(Exception):
     """Raised when every configured AI provider fails."""
+
+
+def _clean_env_secret(raw_value: str, accepted_names: tuple[str, ...]) -> str:
+    """Extract one secret from a raw value or an accidentally pasted .env block."""
+
+    normalized = str(raw_value or "").replace("\\n", "\n").replace("\r", "")
+    first_raw_value = ""
+
+    for raw_line in normalized.split("\n"):
+        line = raw_line.strip().strip('"').strip("'")
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            name, value = line.split("=", 1)
+            if name.strip() in accepted_names and value.strip():
+                return value.strip().strip('"').strip("'")
+            continue
+        if not first_raw_value:
+            first_raw_value = line
+
+    return first_raw_value
 
 
 def _gemini_models() -> list[str]:
@@ -75,7 +96,7 @@ def _generate_with_gemini(
             suffix = f":{status}" if status else ""
             failures.append(f"{model}:HTTP{exc.code}{suffix}")
             continue
-        except (error.URLError, TimeoutError, OSError) as exc:
+        except (error.URLError, TimeoutError, OSError, ValueError) as exc:
             failures.append(f"{model}:{type(exc).__name__}")
             continue
 
@@ -126,12 +147,14 @@ def generate_text(
 ) -> str:
     """Generate text with Gemini first and OpenAI as a fallback."""
 
-    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-    openai_key = (
-        os.getenv("OPENAI_API_KEY")
-        or os.getenv("CODEX_API_KEY")
-        or ""
-    ).strip()
+    gemini_key = _clean_env_secret(
+        os.getenv("GEMINI_API_KEY", ""),
+        ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    )
+    openai_key = _clean_env_secret(
+        os.getenv("OPENAI_API_KEY") or os.getenv("CODEX_API_KEY") or "",
+        ("OPENAI_API_KEY", "CODEX_API_KEY"),
+    )
     failures: list[str] = []
 
     if gemini_key:
@@ -142,8 +165,10 @@ def generate_text(
                 input_text=input_text,
                 max_output_tokens=max_output_tokens,
             )
+        except AIProviderError as exc:
+            failures.append(f"Gemini:{exc}")
         except Exception as exc:
-            failures.append(f"Gemini:{str(exc)}")
+            failures.append(f"Gemini:{type(exc).__name__}")
 
     if openai_key:
         try:
