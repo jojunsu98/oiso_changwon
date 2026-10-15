@@ -564,6 +564,19 @@ def _run_anthropic(client, model, question, profile, steps, tool_outputs, extra_
     raise RuntimeError("도구 호출 횟수 초과")
 
 
+def _openai_tool_call_payload(call):
+    payload = {
+        "id": call.id,
+        "type": "function",
+        "function": {"name": call.function.name, "arguments": call.function.arguments},
+    }
+    # Gemini의 도구 호출 서명을 후속 요청에도 그대로 전달한다.
+    extra_content = getattr(call, "extra_content", None)
+    if extra_content is not None:
+        payload["extra_content"] = extra_content
+    return payload
+
+
 def _run_openai(client, model, question, profile, steps, tool_outputs, extra_instruction=""):
     tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["input_schema"]}} for t in TOOLS]
     messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": question + extra_instruction}]
@@ -574,7 +587,7 @@ def _run_openai(client, model, question, profile, steps, tool_outputs, extra_ins
             return (message.content or "").strip()
         messages.append({
             "role": "assistant", "content": message.content,
-            "tool_calls": [{"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}} for c in message.tool_calls],
+            "tool_calls": [_openai_tool_call_payload(c) for c in message.tool_calls],
         })
         for call in message.tool_calls:
             args = json.loads(call.function.arguments or "{}")

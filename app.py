@@ -221,6 +221,11 @@ h3 {font-size: 1.25rem !important; font-weight: 600 !important;}
 [data-testid="stExpander"] summary p {font-size: 1.4rem; font-weight: 700; line-height: 1.5;}
 [data-testid="stExpander"] [data-testid="stCheckbox"] p {font-size: 1.35rem; font-weight: 600;}
 [data-testid="stExpander"] [data-testid="stTextInput"] label p {font-size: .85rem; font-weight: 400;}
+/* 입력칸의 Enter 안내를 숨기고 글자 수 표시는 유지한다. */
+[data-testid="stTextInput"] [data-testid="InputInstructions"] > span:first-child:not(:last-child) {display: none;}
+[data-testid="stTextInput"] [data-testid="InputInstructions"] > span + span::before {display: none;}
+/* 불편사항·지역말 입력칸 아래에 글자 수 전용 공간을 확보한다. */
+.st-key-complaint-input [data-testid="stTextInput"], .st-key-dialect-input [data-testid="stTextInput"] {padding-bottom: 1.5rem;}
 [data-testid="stExpander"] [data-testid="stCheckbox"] {margin-top: 1.25rem;}
 [data-testid="stLinkButton"], [data-testid="stButton"] {margin-block: .35rem;}
 [class*="st-key-policy-card-"] h2 {font-size: 1.5rem !important; font-weight: 700 !important; line-height: 1.35;}

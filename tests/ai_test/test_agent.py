@@ -38,9 +38,11 @@ def text(value):
 class FakeOpenAI:
     def __init__(self, responses):
         self.responses = list(responses)
+        self.calls = []
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
 
     def _create(self, **kwargs):
+        self.calls.append(kwargs)
         return self.responses.pop(0)
 
 
@@ -247,6 +249,24 @@ class LLMLoopTests(unittest.TestCase):
         result = agent.run_agent("욕봤데이 뜻?", PROFILE, provider="openai", client=client)
         self.assertEqual(result.mode, "llm")
         self.assertIn("수고했다", result.answer)
+
+    def test_gemini_tool_loop_preserves_thought_signature(self):
+        tool_response = oa_tool("lookup_dialect", '{"expression": "욕봤데이"}')
+        extra_content = {"google": {"thought_signature": "opaque-test-signature"}}
+        tool_response.choices[0].message.tool_calls[0].extra_content = extra_content
+        client = FakeOpenAI([tool_response, oa_text("문헌 기준 뜻으로 '수고했다'예요.")])
+
+        result = agent.run_agent(
+            "욕봤데이 뜻?", PROFILE, provider="openai", client=client, model="gemini-3.8-flash",
+        )
+
+        self.assertEqual(result.mode, "llm")
+        self.assertTrue(result.verified)
+        self.assertIn("수고했다", result.answer)
+        self.assertEqual(len(client.calls), 2)
+        messages = client.calls[1]["messages"]
+        self.assertEqual(messages[2]["tool_calls"][0]["extra_content"], extra_content)
+        self.assertEqual(messages[3]["tool_call_id"], "c1")
 
 
 class PlaceLinkButtonTests(unittest.TestCase):
